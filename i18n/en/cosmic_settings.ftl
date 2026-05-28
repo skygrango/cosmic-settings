@@ -565,6 +565,7 @@ display = Displays
     .laptop = { $size } laptop display
     .options = Display options
     .refresh-rate = Refresh rate
+    .vrr-target-rate = VRR Target Rate
     .resolution = Resolution
     .scale = Scale
     .additional-scale-options = Additional scale options

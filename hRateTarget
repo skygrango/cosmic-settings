@@ -1,0 +1,124 @@
+[33mcommit 67b71012a39073ced9d1d607b0a59c4f0e3d4c7e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m
+Author: Skygrango <skygrango@gmail.com>
+Date:   Fri May 22 22:15:10 2026 +0800
+
+    support target rate
+
+[1mdiff --git a/cosmic-settings/src/pages/display/mod.rs b/cosmic-settings/src/pages/display/mod.rs[m
+[1mindex eba2ee7..b259017 100644[m
+[1m--- a/cosmic-settings/src/pages/display/mod.rs[m
+[1m+++ b/cosmic-settings/src/pages/display/mod.rs[m
+[36m@@ -97,6 +97,8 @@[m [mpub enum Message {[m
+     RefreshRate(usize),[m
+     /// Set the VRR mode of a display.[m
+     VariableRefreshRate(usize),[m
+[32m+[m[32m    /// Set the VRR target rate of a display.[m
+[32m+[m[32m    VariableRefreshRateTarget(u32),[m
+     /// Set the resolution of a display.[m
+     Resolution(usize),[m
+     /// Set the preferred scale for a display.[m
+[36m@@ -124,6 +126,7 @@[m [menum Randr {[m
+     Position(i32, i32),[m
+     RefreshRate(u32),[m
+     VariableRefreshRate(AdaptiveSyncState),[m
+[32m+[m[32m    VariableRefreshRateTarget(f64),[m
+     Resolution(u32, u32),[m
+     Scale(u32),[m
+     Transform(Transform),[m
+[36m@@ -185,6 +188,7 @@[m [mstruct Config {[m
+     // night_light_enabled: bool,[m
+     refresh_rate: Option<u32>,[m
+     vrr: Option<AdaptiveSyncState>,[m
+[32m+[m[32m    vrr_target_rate: Option<f64>,[m
+     resolution: Option<(u32, u32)>,[m
+     scale: u32,[m
+ }[m
+[36m@@ -623,6 +627,8 @@[m [mimpl Page {[m
+ [m
+             Message::VariableRefreshRate(mode) => return self.set_vrr(mode),[m
+ [m
+[32m+[m[32m            Message::VariableRefreshRateTarget(rate) => return self.set_vrr_target_rate(rate),[m
+[32m+[m
+             Message::Resolution(option) => return self.set_resolution(option),[m
+ [m
+             Message::Scale(option) => {[m
+[36m@@ -764,6 +770,7 @@[m [mimpl Page {[m
+         self.config.refresh_rate = None;[m
+         self.config.resolution = None;[m
+         self.config.vrr = output.adaptive_sync;[m
+[32m+[m[32m        self.config.vrr_target_rate = None; // Should be loaded from output if supported[m
+         self.config.scale = (output.scale * 100.0) as u32;[m
+ [m
+         self.cache.modes.clear();[m
+[36m@@ -999,6 +1006,16 @@[m [mimpl Page {[m
+         self.exec_randr(output, Randr::VariableRefreshRate(mode))[m
+     }[m
+ [m
+[32m+[m[32m    /// Set the VRR target rate of a display.[m
+[32m+[m[32m    pub fn set_vrr_target_rate(&mut self, rate: u32) -> Task<app::Message> {[m
+[32m+[m[32m        let Some(output) = self.list.outputs.get(self.active_display) else {[m
+[32m+[m[32m            return Task::none();[m
+[32m+[m[32m        };[m
+[32m+[m
+[32m+[m[32m        self.config.vrr_target_rate = Some(rate as f64);[m
+[32m+[m[32m        self.exec_randr(output, Randr::VariableRefreshRateTarget(rate as f64))[m
+[32m+[m[32m    }[m
+[32m+[m
+     /// Change the resolution of the active display.[m
+     pub fn set_resolution(&mut self, option: usize) -> Task<app::Message> {[m
+         let mut tasks = Vec::with_capacity(2);[m
+[36m@@ -1134,6 +1151,19 @@[m [mimpl Page {[m
+                     .arg(itoa::Buffer::new().format(current.size.1));[m
+             }[m
+ [m
+[32m+[m[32m            Randr::VariableRefreshRateTarget(rate) => {[m
+[32m+[m[32m                let Some(current) = output.current.and_then(|id| self.list.modes.get(id)) else {[m
+[32m+[m[32m                    return Task::none();[m
+[32m+[m[32m                };[m
+[32m+[m
+[32m+[m[32m                task.arg("mode")[m
+[32m+[m[32m                    .arg("--vrr-target-rate")[m
+[32m+[m[32m                    .arg(format!("{}", rate))[m
+[32m+[m[32m                    .arg(name)[m
+[32m+[m[32m                    .arg(itoa::Buffer::new().format(current.size.0))[m
+[32m+[m[32m                    .arg(itoa::Buffer::new().format(current.size.1));[m
+[32m+[m[32m            }[m
+[32m+[m
+             Randr::Resolution(width, height) => {[m
+                 task.arg("mode")[m
+                     .arg(name)[m
+[36m@@ -1235,6 +1265,7 @@[m [mpub fn display_configuration() -> Section<crate::pages::Message> {[m
+         _display = fl!("display");[m
+         refresh_rate = fl!("display", "refresh-rate");[m
+         vrr = fl!("vrr");[m
+[32m+[m[32m        vrr_target_rate = "VRR Target Rate".to_string();[m
+         resolution = fl!("display", "resolution");[m
+         scale = fl!("display", "scale");[m
+         additional_scale_options = fl!("display", "additional-scale-options");[m
+[36m@@ -1299,6 +1330,26 @@[m [mpub fn display_configuration() -> Section<crate::pages::Message> {[m
+                             },[m
+                         ),[m
+                     ));[m
+[32m+[m
+[32m+[m[32m                    if vrr_selected == 0 || vrr_selected == 1 {[m
+[32m+[m[32m                        let max_rate = page.config.refresh_rate.unwrap_or(60000) / 1000;[m
+[32m+[m[32m                        let min_rate = 30; // Default min VRR[m
+[32m+[m[32m                        let current_target =[m
+[32m+[m[32m                            page.config.vrr_target_rate.unwrap_or(max_rate as f64) as u32;[m
+[32m+[m
+[32m+[m[32m                        items.push(widget::settings::item([m
+[32m+[m[32m                            &descriptions[vrr_target_rate],[m
+[32m+[m[32m                            column::with_capacity(2)[m
+[32m+[m[32m                                .spacing(5)[m
+[32m+[m[32m                                .push([m
+[32m+[m[32m                                    widget::slider(min_rate..=max_rate, current_target, |rate| {[m
+[32m+[m[32m                                        Message::VariableRefreshRateTarget(rate)[m
+[32m+[m[32m                                    })[m
+[32m+[m[32m                                    .step(1u32),[m
+[32m+[m[32m                                )[m
+[32m+[m[32m                                .push(text::body(format!("{} Hz", current_target))),[m
+[32m+[m[32m                        ));[m
+[32m+[m[32m                    }[m
+                 }[m
+ [m
+                 items.extend(vec![[m

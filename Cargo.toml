@@ -7,7 +7,8 @@ resolver = "3"
 rust-version = "1.93"
 
 [workspace.dependencies]
-cosmic-randr = { git = "https://github.com/pop-os/cosmic-randr" }
+cosmic-randr = { git = "https://github.com/skygrango/cosmic-randr", branch = "vrr_target_rate" }
+
 tokio = { version = "1.49.0", features = ["macros"] }
 iced_winit = { git = "https://github.com/pop-os/libcosmic", default-features = false }
 
@@ -39,8 +40,8 @@ git = "https://github.com/pop-os/cosmic-idle"
 git = "https://github.com/pop-os/cosmic-panel"
 
 [workspace.dependencies.cosmic-randr-shell]
-git = "https://github.com/pop-os/cosmic-randr"
-
+git = "https://github.com/skygrango/cosmic-randr"
+branch = "vrr_target_rate"
 [workspace.dependencies.sctk]
 version = "0.20"
 package = "smithay-client-toolkit"
@@ -62,9 +63,9 @@ debug = true
 # [patch.'https://github.com/pop-os/cosmic-text']
 # cosmic-text = { git = "https://github.com/pop-os/cosmic-text//", rev = "b017d7c" }
 
-[patch.'https://github.com/pop-os/cosmic-protocols']
-cosmic-protocols = { git = "https://github.com/pop-os/cosmic-protocols//", rev = "d0e95be" }
-cosmic-client-toolkit = { git = "https://github.com/pop-os/cosmic-protocols//", rev = "d0e95be" }
+[patch.'https://github.com/skygrango/cosmic-protocols']
+cosmic-protocols = { git = "https://github.com/skygrango/cosmic-protocols//", branch = "vrr_target_rate" }
+cosmic-client-toolkit = { git = "https://github.com/skygrango/cosmic-protocols//", branch = "vrr_target_rate" }
 
 # [patch.'https://github.com/pop-os/cosmic-settings-daemon']
 # cosmic-settings-config = { git = "https://github.com/pop-os/cosmic-settings-daemon//", branch = "input_nobuild" }

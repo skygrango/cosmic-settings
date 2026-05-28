@@ -97,6 +97,10 @@ pub enum Message {
     RefreshRate(usize),
     /// Set the VRR mode of a display.
     VariableRefreshRate(usize),
+    /// Set the VRR target rate of a display.
+    VrrTargetRate(u32),
+    /// Apply the VRR target rate of a display.
+    VrrTargetRateApply,
     /// Set the resolution of a display.
     Resolution(usize),
     /// Set the preferred scale for a display.
@@ -124,6 +128,7 @@ enum Randr {
     Position(i32, i32),
     RefreshRate(u32),
     VariableRefreshRate(AdaptiveSyncState),
+    VrrTargetRate(u32),
     Resolution(u32, u32),
     Scale(u32),
     Transform(Transform),
@@ -185,6 +190,7 @@ struct Config {
     // night_light_enabled: bool,
     refresh_rate: Option<u32>,
     vrr: Option<AdaptiveSyncState>,
+    vrr_target_rate: Option<u32>,
     resolution: Option<(u32, u32)>,
     scale: u32,
 }
@@ -415,6 +421,7 @@ impl page::Page<crate::pages::Message> for Page {
                 current: Some(test_mode),
                 adaptive_sync: None,
                 adaptive_sync_availability: None,
+                vrr_target_rate: None,
                 xwayland_primary: None,
             });
 
@@ -433,6 +440,7 @@ impl page::Page<crate::pages::Message> for Page {
                 current: Some(test_mode),
                 adaptive_sync: Some(AdaptiveSyncState::Disabled),
                 adaptive_sync_availability: Some(AdaptiveSyncAvailability::Supported),
+                vrr_target_rate: None,
                 xwayland_primary: None,
             });
 
@@ -623,6 +631,12 @@ impl Page {
 
             Message::VariableRefreshRate(mode) => return self.set_vrr(mode),
 
+            Message::VrrTargetRate(rate) => {
+                self.config.vrr_target_rate = Some(rate);
+            }
+
+            Message::VrrTargetRateApply => return self.apply_vrr_target_rate(),
+
             Message::Resolution(option) => return self.set_resolution(option),
 
             Message::Scale(option) => {
@@ -764,6 +778,7 @@ impl Page {
         self.config.refresh_rate = None;
         self.config.resolution = None;
         self.config.vrr = output.adaptive_sync;
+        self.config.vrr_target_rate = output.vrr_target_rate.map(|rate| rate / 1000);
         self.config.scale = (output.scale * 100.0) as u32;
 
         self.cache.modes.clear();
@@ -999,6 +1014,18 @@ impl Page {
         self.exec_randr(output, Randr::VariableRefreshRate(mode))
     }
 
+    pub fn apply_vrr_target_rate(&mut self) -> Task<app::Message> {
+        let Some(output) = self.list.outputs.get(self.active_display) else {
+            return Task::none();
+        };
+
+        if let Some(rate) = self.config.vrr_target_rate {
+            return self.exec_randr(output, Randr::VrrTargetRate(rate * 1000));
+        }
+
+        Task::none()
+    }
+
     /// Change the resolution of the active display.
     pub fn set_resolution(&mut self, option: usize) -> Task<app::Message> {
         let mut tasks = Vec::with_capacity(2);
@@ -1122,16 +1149,17 @@ impl Page {
             }
 
             Randr::VariableRefreshRate(mode) => {
-                let Some(current) = output.current.and_then(|id| self.list.modes.get(id)) else {
-                    return Task::none();
-                };
-
                 task.arg("mode")
                     .arg("--adaptive-sync")
                     .arg(<&'static str>::from(mode))
-                    .arg(name)
-                    .arg(itoa::Buffer::new().format(current.size.0))
-                    .arg(itoa::Buffer::new().format(current.size.1));
+                    .arg(name);
+            }
+
+            Randr::VrrTargetRate(rate) => {
+                task.arg("mode")
+                    .arg("--vrr-target-rate")
+                    .arg(format!("{}.{:03}", rate / 1000, rate % 1000))
+                    .arg(name);
             }
 
             Randr::Resolution(width, height) => {
@@ -1235,6 +1263,7 @@ pub fn display_configuration() -> Section<crate::pages::Message> {
         _display = fl!("display");
         refresh_rate = fl!("display", "refresh-rate");
         vrr = fl!("vrr");
+        vrr_target_rate_label = fl!("display", "vrr-target-rate");
         resolution = fl!("display", "resolution");
         scale = fl!("display", "scale");
         additional_scale_options = fl!("display", "additional-scale-options");
@@ -1299,6 +1328,30 @@ pub fn display_configuration() -> Section<crate::pages::Message> {
                             },
                         ),
                     ));
+
+                    if page.config.vrr != Some(AdaptiveSyncState::Disabled) {
+                        let max_rate = active_output
+                            .current
+                            .and_then(|id| page.list.modes.get(id))
+                            .map(|m| m.refresh_rate / 1000)
+                            .unwrap_or(60);
+                        let current_rate = page.config.vrr_target_rate.unwrap_or(max_rate);
+
+                        items.push(widget::settings::item(
+                            &descriptions[vrr_target_rate_label],
+                            widget::row::with_capacity(2)
+                                .align_y(Alignment::Center)
+                                .push(
+                                    widget::text::body(format!("{} Hz", current_rate))
+                                        .width(Length::Fixed(50.0))
+                                        .align_x(Alignment::Center),
+                                )
+                                .push(
+                                    widget::slider(30..=max_rate, current_rate, Message::VrrTargetRate)
+                                        .on_release(Message::VrrTargetRateApply)
+                                )
+                        ));
+                    }
                 }
 
                 items.extend(vec![

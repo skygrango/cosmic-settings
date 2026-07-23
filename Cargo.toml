@@ -7,7 +7,7 @@ resolver = "3"
 rust-version = "1.93"
 
 [workspace.dependencies]
-cosmic-randr = { git = "https://github.com/skygrango/cosmic-randr", branch = "vrr_target_rate" }
+cosmic-randr = { git = "https://github.com/skygrango/cosmic-randr", branch = "vrr_target_rate_v2" }
 tokio = { version = "1.53.1", features = ["macros"] }
 
 iced_winit = { git = "https://github.com/pop-os/libcosmic", default-features = false }
@@ -48,7 +48,7 @@ git = "https://github.com/pop-os/cosmic-panel"
 
 [workspace.dependencies.cosmic-randr-shell]
 git = "https://github.com/skygrango/cosmic-randr"
-branch = "vrr_target_rate"
+branch = "vrr_target_rate_v2"
 [workspace.dependencies.sctk]
 version = "0.20"
 package = "smithay-client-toolkit"

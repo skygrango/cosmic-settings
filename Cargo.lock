@@ -1523,7 +1523,7 @@ dependencies = [
 [[package]]
 name = "cosmic-randr"
 version = "0.1.0"
-source = "git+https://github.com/skygrango/cosmic-randr?branch=vrr_target_rate#c5605b9df73aef09aed6ea2685866809232894cb"
+source = "git+https://github.com/skygrango/cosmic-randr?branch=vrr_target_rate_v2#b1599816f97ec5768669a95307cb2b83592f015d"
 dependencies = [
  "cosmic-protocols 0.2.0 (git+https://github.com/skygrango/cosmic-protocols//?branch=vrr_target_rate_v2)",
  "indexmap 2.14.0",
@@ -1537,7 +1537,7 @@ dependencies = [
 [[package]]
 name = "cosmic-randr-shell"
 version = "0.1.0"
-source = "git+https://github.com/skygrango/cosmic-randr?branch=vrr_target_rate#c5605b9df73aef09aed6ea2685866809232894cb"
+source = "git+https://github.com/skygrango/cosmic-randr?branch=vrr_target_rate_v2#b1599816f97ec5768669a95307cb2b83592f015d"
 dependencies = [
  "kdl",
  "slotmap",

@@ -18,6 +18,10 @@ use icu::datetime::input::{Date, DateTime, Time};
 use icu::datetime::{DateTimeFormatter, DateTimeFormatterPreferences, fieldsets};
 use icu::decimal::DecimalFormatter;
 use icu::decimal::input::Decimal;
+use icu::experimental::displaynames::{
+    DisplayNamesOptions,
+    multi::{LanguageDisplayNames, RegionDisplayNames},
+};
 use icu::locale::Locale;
 use locales_rs as locale;
 use regex::Regex;
@@ -754,9 +758,59 @@ fn language_element(
     widget::settings::item(description, popover_button(id, expanded)).into()
 }
 
+fn current_system_icu_locale() -> Option<Locale> {
+    for env_var in ["LC_ALL", "LC_MESSAGES", "LANG"] {
+        if let Ok(val) = std::env::var(env_var) {
+            if !val.is_empty() {
+                let clean = val.split('.').next().unwrap_or(&val).replacen('_', "-", 1);
+                if let Ok(loc) = clean.parse::<Locale>() {
+                    return Some(loc);
+                }
+            }
+        }
+    }
+    None
+}
+
+fn get_icu_region_name(target_locale: &Locale, region_code: &str) -> Option<String> {
+    let region: icu::locale::subtags::Region = region_code.parse().ok()?;
+    let options = DisplayNamesOptions::default();
+    let formatter = RegionDisplayNames::try_new(target_locale.into(), options).ok()?;
+    formatter.of(region).map(|s| s.to_string())
+}
+
+fn get_icu_language_name(target_locale: &Locale, lang_code: &str) -> Option<String> {
+    let language: icu::locale::subtags::Language = lang_code.parse().ok()?;
+    let options = DisplayNamesOptions::default();
+    let formatter = LanguageDisplayNames::try_new(target_locale.into(), options).ok()?;
+    formatter.of(language).map(|s| s.to_string())
+}
+
 fn localized_iso_codes(locale: &locale::Locale) -> (String, String) {
-    let mut language = gettextrs::dgettext("iso_639", &locale.language.display_name);
-    let country = gettextrs::dgettext("iso_3166", &locale.territory.display_name);
+    let lang_code = locale.language.code2.as_deref().unwrap_or(&locale.language.code);
+    let region_code = &locale.territory.code2;
+
+    let mut language = current_system_icu_locale()
+        .and_then(|sys_loc| get_icu_language_name(&sys_loc, lang_code))
+        .or_else(|| {
+            let item_loc_str = format!("{}-{}", lang_code, region_code);
+            item_loc_str
+                .parse::<Locale>()
+                .ok()
+                .and_then(|loc| get_icu_language_name(&loc, lang_code))
+        })
+        .unwrap_or_else(|| gettextrs::dgettext("iso_639", &locale.language.display_name));
+
+    let country = current_system_icu_locale()
+        .and_then(|sys_loc| get_icu_region_name(&sys_loc, region_code))
+        .or_else(|| {
+            let item_loc_str = format!("{}-{}", lang_code, region_code);
+            item_loc_str
+                .parse::<Locale>()
+                .ok()
+                .and_then(|loc| get_icu_region_name(&loc, region_code))
+        })
+        .unwrap_or_else(|| gettextrs::dgettext("iso_3166", &locale.territory.display_name));
 
     // Ensure language is title-cased.
     let mut chars = language.chars();
@@ -1056,6 +1110,33 @@ fn build_locale_settings(lang: &str, region: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_get_icu_region_name() {
+        let us_name = get_icu_region_name(&"en-US".parse().unwrap(), "US");
+        assert_eq!(us_name.as_deref(), Some("United States"));
+    }
+
+    #[test]
+    fn test_get_icu_language_name() {
+        let en_name = get_icu_language_name(&"en-US".parse().unwrap(), "en");
+        assert_eq!(en_name.as_deref(), Some("English"));
+    }
+
+    #[test]
+    fn test_localized_iso_codes() {
+        let registry = locale::Registry::new().unwrap();
+        if let Some(loc) = registry.locale("en_US.UTF-8") {
+            let (lang, country) = localized_iso_codes(&loc);
+            assert_eq!(lang, "English");
+            assert_eq!(country, "United States");
+        }
+        if let Some(loc) = registry.locale("zh_TW.UTF-8") {
+            let (lang, country) = localized_iso_codes(&loc);
+            assert!(!lang.is_empty() && lang != "None");
+            assert!(!country.is_empty() && country != "None");
+        }
+    }
 
     #[test]
     fn test_parse_locale_output_handles_empty_input() {

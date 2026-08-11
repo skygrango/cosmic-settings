@@ -99,7 +99,7 @@ optional = true
 
 [dependencies.icu]
 version = "2.2.0"
-features = ["compiled_data"]
+features = ["compiled_data", "unstable"]
 
 [dependencies.i18n-embed]
 version = "0.16.0"

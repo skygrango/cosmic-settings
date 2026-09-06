@@ -572,6 +572,9 @@ display = Displays
     .resolution = Resolution
     .scale = Scale
     .additional-scale-options = Additional scale options
+    .hdr-brightness = HDR brightness (SDR white)
+    .hdr = HDR
+    .hdr-tearing = Allow tearing (uncapped frame rates)
 
 mirroring = Mirroring
     .id = Mirroring { $id }

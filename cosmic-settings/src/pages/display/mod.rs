@@ -56,14 +56,6 @@ struct HdrUiState {
 /// tearing preference. `None` when the panel cannot do HDR at all; tearing is
 /// shown regardless through the caller.
 fn hdr_ui_state_for(connector: &str) -> Option<HdrUiState> {
-    // The published status file outlives sessions; only offer the controls
-    // when the running compositor actually honors the keys they write.
-    // (The HDR session exports this; drop the check once the HDR build is
-    // the default COSMIC session and the capability is detected via the
-    // wp_tearing_control/color-management globals instead.)
-    if std::env::var_os("COSMIC_HDR_SESSION").is_none() {
-        return None;
-    }
     let state = cosmic_config::Config::new_state("com.system76.CosmicComp", 1).ok()?;
     let status = state
         .get::<std::collections::HashMap<String, HdrOutputStatus>>("hdr_outputs")

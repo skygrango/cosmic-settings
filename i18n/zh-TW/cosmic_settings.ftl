@@ -373,6 +373,7 @@ display = 顯示器
     .resolution = 解析度
     .scale = 縮放
     .additional-scale-options = 其他縮放選項
+    .fullscreen-vrr-fifo = Fullscreen VRR Force FIFO
 mirroring = 投影
     .id = 正在投影 { $id }
     .dont = 不要投影

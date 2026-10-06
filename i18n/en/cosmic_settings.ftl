@@ -569,6 +569,7 @@ display = Displays
     .options = Display options
     .refresh-rate = Refresh rate
     .vrr-target-rate = VRR Target Rate
+    .fullscreen-vrr-fifo = Fullscreen VRR Force FIFO
     .resolution = Resolution
     .scale = Scale
     .additional-scale-options = Additional scale options

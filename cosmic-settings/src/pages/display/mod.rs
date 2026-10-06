@@ -84,6 +84,17 @@ fn tearing_allowed_for(connector: &str) -> bool {
         .unwrap_or_else(|| config.get::<bool>("allow_tearing").unwrap_or(true))
 }
 
+fn fullscreen_vrr_fifo_for(connector: &str) -> bool {
+    let Ok(config) = cosmic_config::Config::new("com.system76.CosmicComp", 1) else {
+        return false;
+    };
+    config
+        .get::<std::collections::HashMap<String, bool>>("fullscreen_vrr_fifo_outputs")
+        .ok()
+        .and_then(|map| map.get(connector).copied())
+        .unwrap_or_else(|| config.get::<bool>("fullscreen_vrr_fifo").unwrap_or(false))
+}
+
 fn set_bool_map_entry(key: &'static str, connector: &str, value: bool) {
     let Ok(config) = cosmic_config::Config::new("com.system76.CosmicComp", 1) else {
         return;
@@ -197,6 +208,8 @@ pub enum Message {
     HdrEnable(bool),
     /// Toggle tearing (uncapped frame rates) for the active display.
     TearingToggle(bool),
+    /// Toggle Fullscreen VRR Force FIFO for the active display.
+    FullscreenVrrFifoToggle(bool),
     /// Refreshes display outputs.
     Update {
         /// Available outputs from cosmic-randr.
@@ -298,6 +311,8 @@ struct ViewCache {
     vrr_selected: Option<usize>,
     resolution_selected: Option<usize>,
     scale_selected: Option<usize>,
+    /// Fullscreen VRR Force FIFO state for the active display.
+    fullscreen_vrr_fifo: bool,
     /// HDR state for the active display, when the panel is HDR-capable.
     hdr_brightness: Option<HdrUiState>,
 }
@@ -763,6 +778,14 @@ impl Page {
                 }
             }
 
+            Message::FullscreenVrrFifoToggle(enable) => {
+                self.cache.fullscreen_vrr_fifo = enable;
+                if let Some(output) = self.list.outputs.get(self.active_display) {
+                    let connector = output.name.clone();
+                    set_bool_map_entry("fullscreen_vrr_fifo_outputs", &connector, enable);
+                }
+            }
+
             Message::AdjustScale(scale) => {
                 if self.adjusted_scale != scale {
                     self.adjusted_scale = scale;
@@ -915,6 +938,7 @@ impl Page {
         self.cache.refresh_rate_selected = None;
         self.cache.vrr_selected = None;
         self.cache.hdr_brightness = hdr_ui_state_for(&output.name);
+        self.cache.fullscreen_vrr_fifo = fullscreen_vrr_fifo_for(&output.name);
 
         let selected_scale = DPI_SCALES
             .iter()
@@ -1390,6 +1414,7 @@ pub fn display_configuration() -> Section<crate::pages::Message> {
         refresh_rate = fl!("display", "refresh-rate");
         vrr = fl!("vrr");
         vrr_target_rate_label = fl!("display", "vrr-target-rate");
+        fullscreen_vrr_fifo_label = fl!("display", "fullscreen-vrr-fifo");
         resolution = fl!("display", "resolution");
         scale = fl!("display", "scale");
         additional_scale_options = fl!("display", "additional-scale-options");
@@ -1483,6 +1508,12 @@ pub fn display_configuration() -> Section<crate::pages::Message> {
                                     )
                                     .on_release(Message::VrrTargetRateApply),
                                 ),
+                        ));
+
+                        items.push(widget::settings::item(
+                            &descriptions[fullscreen_vrr_fifo_label],
+                            widget::toggler(page.cache.fullscreen_vrr_fifo)
+                                .on_toggle(Message::FullscreenVrrFifoToggle),
                         ));
                     }
                 }
